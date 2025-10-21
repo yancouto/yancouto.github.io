@@ -31,6 +31,7 @@
                 // Storage Access API (partitioned third-party storage → request first-party access)
                 if (typeof document.hasStorageAccess === 'function') {
                     var has = await document.hasStorageAccess();
+                    if(has) return window.localStorage;
                     if (!has && typeof document.requestStorageAccess === 'function') {
                         try {
                             const handle = await document.requestStorageAccess({localStorage: true});

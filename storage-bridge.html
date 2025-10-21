@@ -18,9 +18,9 @@
         // https://yancouto.github.io/storage-bridge.html so it can read the old
         // origin's localStorage, then postMessage it to the parent window.
 
-        function safeGet(key) {
+        function safeGet(storage, key) {
             try {
-                return window.localStorage.getItem(key);
+                return storage.getItem(key);
             } catch {
                 return null;
             }
@@ -33,7 +33,8 @@
                     var has = await document.hasStorageAccess();
                     if (!has && typeof document.requestStorageAccess === 'function') {
                         try {
-                            await document.requestStorageAccess();
+                            const handle = await document.requestStorageAccess({localStorage: true});
+                            return handle.localStorage;
                         } catch {
                             // request denied or not supported
                         }
@@ -47,24 +48,17 @@
         async function handleMessage(ev) {
             try {
                 var data = ev.data || {};
-                if (!data || (data.type !== 'metrodlesp:migration:request' && data.type !== 'metrodlesp:migration:storage-access')) return;
-
-                if (data.type === 'metrodlesp:migration:storage-access') {
-                    await ensureStorageAccess();
-                    // Acknowledge attempt; parent may choose to re-request data after this
-                    ev.source && ev.source.postMessage({ type: 'metrodlesp:migration:storage-access', granted: true }, '*');
-                    return;
-                }
+                if (!data || (data.type !== 'metrodlesp:migration:request')) return;
 
                 // For migration requests, first try to acquire storage access, then read keys
-                await ensureStorageAccess();
+                const storage = await ensureStorageAccess();
 
                 var payload = {
                     type: 'metrodlesp:migration:response',
                     keys: {
-                        'metrodlesp:state': safeGet('metrodlesp:state'),
-                        'metrodlesp:stats': safeGet('metrodlesp:stats'),
-                        'seenHelpV1': safeGet('seenHelpV1')
+                        'metrodlesp:state': safeGet(storage, 'metrodlesp:state'),
+                        'metrodlesp:stats': safeGet(storage, 'metrodlesp:stats'),
+                        'seenHelpV1': safeGet(storage, 'seenHelpV1')
                     }
                 };
                 // Reply to the source; use * so it works across domains. The parent should validate the origin.

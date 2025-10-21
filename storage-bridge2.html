@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Metrodle Storage Bridge</title>
+    <style>html, body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        color: #000
+    }</style>
+</head>
+<body>
+<div id="bridgeRoot" style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 12px;">
+  <h2 style="margin: 0 0 8px;">Importar dados do Metrodle</h2>
+  <p style="margin: 0 0 12px; font-size: 14px;">Clique no botão abaixo para permitir acesso ao armazenamento deste site e enviar seus dados ao Metrodle.</p>
+  <button id="grantBtn" style="padding: 8px 12px; font-size: 14px; cursor: pointer;">Permitir acesso e enviar</button>
+  <div id="status" style="margin-top: 10px; font-size: 13px;"></div>
+</div>
+<script>
+(function(){
+  function safeGet(key) {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  async function onClick() {
+    const statusEl = document.getElementById('status');
+    function setStatus(txt) { if (statusEl) statusEl.textContent = txt; }
+    try {
+      // Only request storage access after explicit user interaction
+      if (typeof document.hasStorageAccess === 'function') {
+        try {
+          const has = await document.hasStorageAccess();
+          if (!has && typeof document.requestStorageAccess === 'function') {
+            await document.requestStorageAccess();
+          }
+        } catch {
+          // Ignore failures; we'll try reading regardless
+        }
+      }
+      const payload = {
+        type: 'metrodlesp:migration:response',
+        keys: {
+          'metrodlesp:state': safeGet('metrodlesp:state'),
+          'metrodlesp:stats': safeGet('metrodlesp:stats'),
+          'seenHelpV1': safeGet('seenHelpV1')
+        }
+      };
+      try {
+        parent && parent.postMessage(payload, '*');
+        setStatus('Dados enviados. Você pode fechar esta janela.');
+      } catch {
+        setStatus('Falha ao enviar dados.');
+      }
+    } catch {
+      setStatus('Erro ao acessar armazenamento.');
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('grantBtn');
+    if (btn) btn.addEventListener('click', onClick);
+  });
+
+  // Announce readiness (no access request here)
+  try { parent && parent.postMessage({type: 'metrodlesp:migration:ready'}, '*'); } catch {}
+})();
+</script>
+</body>
+</html>
